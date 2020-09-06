@@ -1,0 +1,18 @@
+```{r, include=FALSE, echo=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      # results = 'hold',
+                      comment = NA)
+```
+
+```{r, results='asis', echo=FALSE}
+cat("  \n### {{var}}")
+```
+
+```{r, echo=FALSE, results='asis'}
+load("{{ruta}}")
+print(kable_styling(kable({{obj}}[["{{var}}"]], digits=1), 
+                    bootstrap_options = c("striped", "hover", "condensed")) %>%
+                row_spec(1:20, bold=T, color="white", background = "#31a354") %>%
+                row_spec(21:nrow({{obj}}[["{{var}}"]]), bold=T, color="white", background = "#D7261E"))
+```
+

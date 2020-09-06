@@ -1,0 +1,65 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+editor_options: 
+  chunk_output_type: console
+---
+
+# Gráficos por vivienda
+
+Las variables del estudio, por vivienda.
+
+```{r c4_01, echo=FALSE, results = 'asis', warning=FALSE, message=FALSE, eval=FALSE}
+fillG <- function(dat, targetCol, groupCol, valueCol, timegap=.5, timegapconv=3600) {
+  # dat=tmp; targetCol="fecha"; groupCol="tdiffm"; valueCol=v; timegap=.5; timegapconv=3600
+  gaps <- c(0, which(unlist(dat[, ..groupCol]) > timegap), nrow(dat))
+  cat("Cortando ", length(gaps), "\n")
+  dat[, cl:=as.factor(rep(1:length(gaps[-1]), diff(gaps)))]
+  myl <- split(dat, dat$cl)
+  # myl2 <- rep(list(NA), length(myl))
+  # for (i in 1:length(myl)) {
+  myl2 <- lapply(myl, function(x) {
+    # x <- myl[[i]]
+    n <- nrow(x)
+    yl <- x[n, ]
+    yl[, c(targetCol, valueCol):=list(c(yl[, ..targetCol] + timegap*timegapconv)[[1]], NA)]
+    # myl2[[i]] <- rbindlist(list(x, yl))
+  # }
+    rbindlist(list(x, yl))
+  })
+  tp <- rbindlist(myl2)[, c("Vivienda ID", ..targetCol, ..valueCol)]
+  tp[, variable:=as.factor(valueCol)]
+  setnames(tp, c("Vivienda ID", targetCol, "Value", "variable")) 
+  tp
+}
+
+tgap <- .5
+plotlyd <- list()
+for (v in varsu) {
+  tmp <- subset(mdt, !is.na(get(v)))
+  tmp[, tdiffm:=NULL]
+  tmp[, tdiffm:=as.numeric(diff(fecha), units="hours"), by=c("Vivienda ID")]
+  tmp[is.na(tdiffm), tdiffm:=tgap]
+  plotlyd[[v]] <- fillG(tmp, "fecha", "tdiffm", v, tgap, 3600)
+}
+plotlydat <- rbindlist(plotlyd)
+save(plotlydat, file="plotlyData.RData")
+```
+
+```{r c4_02, echo=FALSE, results = 'asis', warning=FALSE, message=FALSE}
+library(plotly)
+
+src <- lapply(IDs, function(id) {
+  ruta = "plotlyData.RData"
+  knitr::knit_expand(file = "sub_rmd/02_plot.Rmd")
+})
+```
+
+`r knitr::knit(text = unlist(src))`
+
+
+
+
+
+

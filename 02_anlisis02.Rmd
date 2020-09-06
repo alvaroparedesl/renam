@@ -1,0 +1,89 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+editor_options: 
+  chunk_output_type: console
+---
+
+# Análisis de continuidad
+
+Las mediciones de cada vivienda son realizadas cada 30 minutos. En este análisis se buscó encontrar el número de intervalos de tiempo superiores a los 30 minutos en que una vivienda no reportó mediciones, así como también su duración. Con esta información, se constuyó otro ranking bajo el criterio relativo de días sin datos y duración relativa, por variable.
+
+
+## Análisis por variable
+
+Las unidades de las variables de las siguientes tablas, están en horas (excepto para el número de interrupciones y el Número de mediciones). 
+
+El ranking está organizado en base a la media y la mediana relativa al número de mediciones de todas las observaciones. La idea es crear un un puntaje ponderado por ambas variables, dado que la mediana aporta estabilidad al mostrar la duración de la interrupción del 50% de las observaciones (cuanto esperaría que durara una interrupción la mayoría de las veces), mientras que la media (debido a su alta sensibilidad a los valores extremos) puede dar una idea de que tan grandes pueden ser las intermitencias.
+
+<!-- \text{Puntaje absoluto } &= \frac{n_v}{N_v}\frac{m(y_v)}{\bar{y}_v}*1000\cr -->
+\begin{align}
+\text{Puntaje relativo } &= log_{10} \left( \frac{n_v\sum_{v=1}^VN_v}{N_v\sum_{v=1}^Vn_v}(m(y_v) * {y}_v) \right)
+\end{align}
+
+Con $n_v$ el número de interrupciones, $N_v$ el número de mediciones, $\bar{y}_v$ la duración promedio y $m(y_v)$ la mediana, para la vivienda $v$ y la respectiva variable. Menor puntaje, implica mejor desempeño.
+
+```{r c2_01, echo=FALSE, results = 'asis', warning=FALSE, message=FALSE}
+varsu <- vars[-c(9:10)]
+conti <- list()
+for (v in varsu) {
+  tmp <- subset(mdt, !is.na(get(v)))
+  tmp[, tdiffm:=NULL]
+  tmp[, tdiffm:=c(NA, as.numeric(diff(fecha), units="hours")), by=c("Vivienda ID")]
+  tmp[, NN:=.N, by=c("Vivienda ID")]
+  rest <- tmp[tdiffm >= 1, list(`Número interrupciones`=.N, `Número mediciones`=unique(NN),
+                                     `Duración Mínima`=min(tdiffm, na.rm=T),
+                                     `Duración Máxima`=max(tdiffm, na.rm=T),
+                                     `Duración Mediana`=median(tdiffm, na.rm=T),
+                                     `Duración Promedio`=mean(tdiffm, na.rm=T),
+                                     `Duración Total`=sum(tdiffm, na.rm=T)),
+      by="Vivienda ID"]
+  falta <- setdiff(IDs, unique(rest$`Vivienda ID`))
+  if (length(falta) > 0) {
+    rest <- rbindlist(list(rest, data.table(`Vivienda ID`=falta)), fill=T)
+    for(j in seq_along(rest)){
+      set(rest, i = which(is.na(rest[[j]]) & is.numeric(rest[[j]])), j = j, value = 0)
+    }
+  }
+  # rest[, `Puntaje absoluto` := (`Número interrupciones` / `Número mediciones` * (`Duración Mediana` / `Duración Promedio`))*1000]
+  rest[, `Puntaje relativo` := log10(`Número interrupciones` * sum(`Número mediciones`) / (`Número mediciones` * sum(`Número interrupciones`)) * (`Duración Mediana` * `Duración Promedio`))]
+  rest[is.na(`Puntaje relativo`), `Puntaje relativo`:=0]
+  rest[, Ranking:=frankv(`Puntaje relativo`, ties.method="min", order=1)]
+  rest <- rest[order(Ranking, decreasing=F)]
+  conti[[v]] <- rest
+}
+
+tempData2 <- "temp2.RData"
+save(conti, file=tempData2)
+src <- lapply(varsu, function(i) {
+  var = i
+  ruta = tempData2
+  obj = "conti"
+  knitr::knit_expand(file = "sub_rmd/01_var.Rmd")
+})
+```
+`r knitr::knit(text = unlist(src))`
+
+
+## Ranking por variable
+
+Utilizando la posición del ranking de cada vivienda, en cada una de las variables anteriores, se calculó una ranking principal, sumando la respectiva posición de cada casa en todasd sus variables. De esa forma, un menor valor, otorga una mejor posición.
+
+```{r c2_02, echo=FALSE, results = 'asis'}
+rkg_general2 <- lapply(varsu, function(x){
+  y <- conti[[x]]
+  y[, variable := x]
+  y[, c("Vivienda ID", "variable", "Ranking")]
+})
+rkg_general2 <- rbindlist(rkg_general2)
+rkg_general2 <- dcast(rkg_general2, `Vivienda ID` ~ variable, value.var="Ranking")
+rkg_general2[, Ranking:=frankv(rowSums(.SD), ties.method="min", order=1), .SDcols=varsu]
+setorderv(rkg_general2, cols="Ranking", order=1)
+print(kable_styling(kable(rkg_general2, digits=2), 
+                    bootstrap_options = c("striped", "hover", "condensed")) %>%
+                row_spec(1:20, bold=T, color="white", background = "#31a354") %>%
+                row_spec(21:nrow(rkg_general2), bold=T, color="white", background = "#D7261E"))
+save(conti, rkg_general2, file=tempData2)
+```
+

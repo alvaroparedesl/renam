@@ -1,0 +1,28 @@
+---
+title: "RENAM"
+author: "TecPar"
+# date: "`r Sys.Date()`"
+date: "2019-04-16"
+documentclass: book
+editor_options:
+  chunk_output_type: console
+link-citations: yes
+site: bookdown::bookdown_site
+description: Análisis de datos de RENAM para Temuco
+url: http\://www.tecpar.cl/renam.html
+---
+
+# Preliminar
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(data.table)
+library(scales)
+library(xtable)
+library(kableExtra)
+# load("F:/temp/RENAM/data.RData")
+load("data.RData")
+```
+
+El siguiente es un análisis preliminar de la información de información proveniente de [RENAM](http\://www.renam.cl), sólo para las viviendas de Temuco (`r nrow(outi)` en total).

@@ -1,0 +1,77 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+editor_options: 
+  chunk_output_type: console
+---
+
+# Análisis preliminar: Estadística descriptiva
+
+Las variables `Energía` y `Potencia` no contienen datos para las viviendas del sector, para todo el período estudiado.
+
+
+## Análisis por variable
+
+Por cada una de las variables, se obtendrán estadísticas básicas ordenadas por el ID de la vivienda según la proporción ponderada de datos válidos con respecto al total de dicha variable ($\frac{n_i}{\sum_{j=1}^Nn_i}$, con $n_i$ indicando el número de observaciones para la variable en cuestión de la vivienda $i$, y $N$ al total de viviendas). 
+
+```{r c1_01, echo=FALSE, results = 'asis', warning=FALSE, message=FALSE}
+IDs <- sort(outi$name_NA_ID)
+mdt <- dt[`Vivienda ID` %in% IDs]
+vars <- colnames(dt)[2:11]
+res1 <- list()
+for (i in vars) {
+  rest <- mdt[, list(`Mínimo`=as.numeric(min(get(i), na.rm=T)), 
+                   `Máximo`=as.numeric(max(get(i), na.rm=T)),
+                   Promedio=as.numeric(mean(get(i), na.rm=T)),
+                   Mediana=as.numeric(median(get(i), na.rm=T)),
+                   `Número de datos válidos`=sum(!is.na(get(i))),
+                   `Número de datos totales`=.N),
+            by="Vivienda ID"]
+  rest[, `Proporción datos`:=percent(`Número de datos válidos`/`Número de datos totales`)]
+  rest[, `Proporción datos ponderada`:=`Número de datos válidos`/sum(`Número de datos válidos`)*100]
+  rest <- rest[order(`Proporción datos ponderada`, decreasing=T)]
+  res1[[i]] <- rest
+}
+
+tempData1 <- "temp.RData"
+save(res1, file=tempData1)
+largo_vars <- lapply(1:length(vars), function(i) length(unique(mdt[, get(vars[i])])))
+# print(kable_styling(kable(res1[[i]], caption=vars[i], digits=1), bootstrap_options = c("striped", "hover", "condensed")))
+src <- lapply(1:length(vars), function(i) {
+  if (largo_vars[[i]] > 1) {
+    var = vars[i]
+    ruta = tempData1
+    obj = "res1"
+    knitr::knit_expand(file = "sub_rmd/01_var.Rmd")
+  }
+})
+```
+`r knitr::knit(text = unlist(src))`
+
+
+## Ranking por variable
+
+Por cada vivienda, se generó un ranking agrupado, considerando el ranking de cada vivienda en cada una de las variables disponibles (utilizando la proporción de datos ponderada como referencia). El objetivo, es facilitar la identificación de las viviendas que poseen mayor información. En este ranking, no se considera la "continuidad" de los datos (será analizado en el capítulo siguiente). 
+
+Cada variable contiene el porcentaje de observaciones que abarca la vivienda, con respecto al total de datos observados por variable (por ejemplo, si una vivienda tiene un 3% en Temperatura Interior, significa que del total de observaciones válidas, esa vivienda contiene un 3% de los datos de Temperatura Interior).
+
+```{r c1_02, echo=FALSE, results = 'asis'}
+rkg_general <- lapply(res1, function(x){
+  x[order(`Vivienda ID`), c("Proporción datos ponderada")]
+})
+rkg_general <- do.call('cbind', rkg_general)
+setnames(rkg_general, vars)
+rkg_general[, `Vivienda ID`:=IDs]
+rkg_general <- rkg_general[, c("Vivienda ID", ..vars[1:8])]
+rkg_general[, Ranking2:=sum(.SD), by="Vivienda ID", .SDcols=vars[1:8]]
+rkg_general[, Ranking:=frankv(Ranking2, ties.method="min", order=-1)]
+setorderv(rkg_general, cols="Ranking", order=1)
+print(kable_styling(kable(rkg_general[, c("Vivienda ID", ..vars[1:8], "Ranking")], digits=2),  
+                    bootstrap_options = c("striped", "hover", "condensed")) %>%
+                row_spec(1:20, bold=T, color="white", background = "#31a354") %>%
+                row_spec(21:nrow(rkg_general), bold=T, color="white", background = "#D7261E"))
+save(res1, rkg_general, file=tempData1)
+```
+
+

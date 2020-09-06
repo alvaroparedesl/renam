@@ -1,0 +1,7 @@
+book_filename: "renam"
+language:
+  ui:
+    chapter_name: "Capítulo "
+  label:
+    fig: "Figura  "
+    tab: "Tabla "

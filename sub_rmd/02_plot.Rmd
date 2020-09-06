@@ -1,0 +1,23 @@
+---
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+```{r, include=FALSE, echo=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      # results = 'hold',
+                      comment = NA)
+```
+
+```{r, results='asis', echo=FALSE}
+cat("  \n## Vivienda {{id}}")
+```
+
+```{r, echo=FALSE, results='asis', eval=TRUE}
+library(plotly)
+load("{{ruta}}")
+p <- plot_ly(plotlydat[plotlydat$`Vivienda ID`=={{id}}, ], x = ~fecha, mode = 'lines')
+p <- add_lines(p, y=~Value, color=~variable)
+p  
+```
+

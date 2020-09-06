@@ -1,0 +1,31 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+editor_options: 
+  chunk_output_type: console
+---
+
+# Integración de Rankings
+
+Ranking combinado, considerando la cantidad de datos y la mayor disponibilidad. Se suma el ranking del capítulo 2 y 3, y el que obtenga menor puntuación obtiene mejor evaluación.
+
+```{r c3_01, echo=FALSE, results = 'asis'}
+rkg_general[, tRank:="Ranking Disponibilidad"]
+rkg_general2[, tRank:="Ranking Continuidad"]
+
+rkg <- rbindlist(list(rkg_general[, c("Vivienda ID", "tRank", "Ranking")], 
+                      rkg_general2[, c("Vivienda ID", "tRank", "Ranking")]))
+
+rkg <- dcast(rkg, `Vivienda ID` ~ tRank, value.var="Ranking")
+rkg[, Ranking:=frankv(rowSums(.SD), ties.method="min", order=1), .SDcols=c("Ranking Disponibilidad", "Ranking Continuidad")]
+setorderv(rkg, cols="Ranking", order=1)
+print(kable_styling(kable(rkg, digits=2), 
+                    bootstrap_options = c("striped", "hover", "condensed")) %>%
+                row_spec(1:20, bold=T, color="white", background = "#31a354") %>%
+                row_spec(21:nrow(rkg), bold=T, color="white", background = "#D7261E"))
+fwrite(rkg, "Ranking_total.csv")
+```
+
+
+
